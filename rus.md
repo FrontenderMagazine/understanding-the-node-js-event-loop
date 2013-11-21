@@ -51,74 +51,123 @@ performance impact (from[Sam Rushing][2]): -->
     resources. -->
    
 
-The second basis thesis is that thread-per-connection is memory-expensive: [e.g
-. that graph everyone showns about Apache sucking up memory compared to Nginx
-]
 
-Apache is multithreaded: it spawns a [thread per request][3] (or [process][4],
+Второй основной тезис заключается в том, что обработка каждого нового 
+подключения в отдельном потоке обходиться дорого. [e.g. that graph everyone 
+showns about Apache sucking up memory compared to Nginx] <!-- TODO: О чем это? -->
+
+<!-- The second basis thesis is that thread-per-connection is memory-expensive: [e.g
+. that graph everyone showns about Apache sucking up memory compared to Nginx
+] -->
+
+Apache — использует многопоточность: он создает новый [поток][3] или [процесс][4]
+на каждый запрос (???), что именно создаст apache зависит от настроек. Вы можете
+наблюдать как увеличивается количество потребляемой памяти, параллельно с ростом
+количества одновременных подключений к вашему серверу. Nginx и Node.js не 
+используют многопоточность, ботому как потоки и процессы обходятся бóльшими 
+расходами памяти. Они работают в одном потоке, и основаны на событиях. Это 
+исключает перерасход ресурсов, создаваемый тысячами потоков/процессов, 
+благодаря использованию одного потока. 
+
+<!-- Apache is multithreaded: it spawns a [thread per request][3] (or [process][4],
 it depends on the conf). You can see how that overhead eats up memory as the 
 number of concurrent connections increases and more threads are needed to serve 
 multiple simulataneous clients. Nginx and Node.js are not multithreaded, because
 threads and processes carry a heavy memory cost. They are single-threaded, but 
 event-based. This eliminates the overhead created by thousands of threads/
-processes by handling many connections in a single thread.
+processes by handling many connections in a single thread. -->
 
-## **Node.js keeps a single thread for your code…**
 
-It really is a single thread running: you can’t do any parallel code
-execution; doing a “sleep” for example will block the server for one second:
+## **Node.js остается однопоточным для вашего кода**
 
-| [Source code][5] | ![][6] ![][7] ![][8]  |
-||
+<!-- ## **Node.js keeps a single thread for your code…** -->
 
-while(new Date().getTime() < now + 1000) {  
-   // do nothing  
-}
+Нода действительно запущена в одном потоке. Вы не можете ничего выполнить 
+параллельно. К примеру, заставив интерпретатор немного подождать — вы 
+заблокируете весь сервер.
 
-So while that code is running, node.js will not respond to any other requests
+<!-- It really is a single thread running: you can’t do any parallel code
+execution; doing a “sleep” for example will block the server for one second: -->
+
+    while(new Date().getTime() < now + 1000) {  
+       // do nothing  
+    }
+
+Пока этот код выполняется, node.js не будет отвечать ни на один запрос 
+от клиентов, это происходит потому что node.js использует только один
+тред для выполнения вашего кода. Другой пример — если вы запустите код, серьезно
+нагружающий процессор, например, изменение размера изображений, то это тоже,
+заблокирует обработку других запросов.
+
+<!-- So while that code is running, node.js will not respond to any other requests
 from clients, since it only has one thread for executing your code. Or if you 
 would have some CPU -intensive code, say, for resizing images, that would still 
-block all other requests.
+block all other requests. -->
 
-## **…however, everything runs in parallel except your code**
 
-There is no way of making code run in parallel within a single request. 
+## **…тем не менее, все, кроме вашего кода, запускается параллельно**
+<!-- ## **…however, everything runs in parallel except your code** -->
+
+Нет ниодного способа выполнить код параллельно в рамках одного запроса. 
+Однако, все операции ввода-вывода работают на основе событий и являются 
+асинхронными. Следующий ниже пример не будет блокировать ваш сервер:
+
+<!-- There is no way of making code run in parallel within a single request. 
 However, all I/O is evented and asynchronous, so the following won’t block the 
-server:
+server: -->
 
-| [Source code][9] | ![][6] ![][7] ![][8]  |
-||
+    c.query(  
+       'SELECT SLEEP(20);',  
+       function (err, results, fields) {  
+         if (err) {  
+           throw err;  
+         }  
+         res.writeHead(200, {'Content-Type': 'text/html'});  
+         res.end('<html><head><title>Hello</title></head><body><h1>Return from
+    async DB query</h1></body></html
+    >');  
+         c.end();  
+        }  
+    ); 
 
-c.query(  
-   'SELECT SLEEP(20);',  
-   function (err, results, fields) {  
-     if (err) {  
-       throw err;  
-     }  
-     res.writeHead(200, {'Content-Type': 'text/html'});  
-     res.end('<html><head><title>Hello</title></head><body><h1>Return from
-async DB query</h1></body></html
->');  
-     c.end();  
-    }  
-); If you do that in one request, other requests can be processed just fine
-while the database is running it’s sleep.
+Если вы выполните этот код в рамках обработки одного запроса, то следующие 
+запросы, будут обработаны без проблем, пока база данных закончит обработку 
+запроса.
 
-## Why is this good? When do we go from sync to async/parallel execution?
+<!-- If you do that in one request, other requests can be processed just fine
+while the database is running it’s sleep. -->
 
-Having synchronous execution is good, because it simplifies writing code (
+## Что в этом хорошего в том, что мы переходим от синхронного к параллельному выполнению?
+
+<!-- ## Why is this good? When do we go from sync to async/parallel execution? -->
+
+Синхронные операции — это хорошо, потому что они очень простые, (по сравнению 
+с тредами, где проблема с параллельностью стремится придти к состоянию «WTF»).
+
+<!-- Having synchronous execution is good, because it simplifies writing code (
 compared to threads, where concurrency issues have a tendency to result in WTFs
-).
+). -->
 
-In node.js, you aren’t supposed to worry about what happens in the backend:
+В node.js вам не нужно волноваться о том, что происходит на backend'е(плохой термин):
+достаточно использовать фунции обратного вызова, когда вы работаете с I/O; 
+Таким образом вы можете быть уверены, что такой код никогда не заблокирует другие
+запросы к серверу. Кроме того, такой подход не имеет проблем с потреблением 
+ресурсов, в отличии от тредов/процессов (К примеру, как у apache)
+
+
+<!-- In node.js, you aren’t supposed to worry about what happens in the backend:
 just use callbacks when you are doing I/O; and you are guaranteed that your code
 is never interrupted and that doing I/O will not block other requests without 
 having to incur the costs of thread/process per request (e.g. memory overhead in
 Apache
-).
+). -->
 
-Having asynchronous I/O is good, because I/O is more expensive than most code
-and we should be doing something better than just waiting for I/O.
+Асинхронный I/O — это хорошо, потому что операции ввода/вывода более дороги,
+чем простое выполнение кода. К тому же, нам стоит заниматься чем-то более полезным
+чем просто ждать пока такая операция завершится.
+
+<!-- Having asynchronous I/O is good, because I/O is more expensive than most code
+and we should be doing something better than just waiting for I/O. -->
 
 ![][10]
 
@@ -188,11 +237,6 @@ It really is that simple!
  [2]: http://www.nightmare.com/medusa/async_sockets.html
  [3]: http://httpd.apache.org/docs/2.0/mod/worker.html
  [4]: http://httpd.apache.org/docs/2.0/mod/prefork.html
- [5]: #codesyntax_1 "Click to show/hide code block"
- [6]: img/code.png
- [7]: img/printer.png
- [8]: img/info.gif
- [9]: #codesyntax_2 "Click to show/hide code block"
  [10]: img/bucket_3.gif "bucket_3"
 
  [11]: http://stackoverflow.com/questions/3629784/how-is-node-js-inherently-faster-when-it-still-relies-on-threads-internally
