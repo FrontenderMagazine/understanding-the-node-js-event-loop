@@ -171,13 +171,32 @@ and we should be doing something better than just waiting for I/O. -->
 
 ![][10]
 
-An event loop is “an entity that handles and processes external events and
+Событийный цикл — это сущность которая перехватывает и обрабатывает внешние 
+события и конвертирует их в функции обратного вызова. То есть, вызовы I/O — это
+определенные точки, в которых node.js может переключаться от одного запроса 
+к другому. В I/O вызове, ваш код сохраняет callback, и возвращает котроль 
+рантайму node.js. Callback вызовется позднее, когда актуальные данные будут 
+доступны.
+
+<!-- An event loop is “an entity that handles and processes external events and
 converts them into callback invocations”. So I/O calls are the points at which 
 Node.js can switch from one request to another. At an I/O call, your code saves 
 the callback and returns control to the node.js runtime environment. The 
-callback will be called later when the data actually is available.
+callback will be called later when the data actually is available. -->
 
-Of course, on the backend, there are 
+Конечно, на стороне бэкэнда, используются процессы и потоки для доступа к DB 
+и для выполнения различних процессов. Однако, все это не присутствует явно в 
+вашем коде, так что вы не можете беспокоиться об этом, никак кроме как зная, 
+что операции I/O взаимодействия, например, с базой данных или с другими
+процессами будут асинхронными с точки зрения каждого запроса, и результаты этих
+взаимодействий  возвращается через цикл событий обратно в код. В сравнении с 
+моделью работы Apache, здесь гораздо меньше тредов, и потраченных на них
+ресурсов, потому что здесь нет необходимости создавать треды для каждого 
+подключения. Просто когда вам действительно необходимо иметь что-то или выполнить 
+что-то в параллельном потоке, то даже тут это обработает нода. 
+
+
+<!-- Of course, on the backend, there are 
 [threads and processes for DB access and process execution][11]. However, these
 are not explicitly exposed to your code, so you can’t worry about them other 
 than by knowing that I/O interactions e.g. with the database, or with other 
@@ -186,7 +205,7 @@ results from those threads are returned via the event loop to your code.
 Compared to the Apache model, there are a lot less threads and thread overhead, 
 since threads aren’t needed for each connection; just when you absolutely 
 positively must have something else running in parallel and even then the 
-management is handled by Node.js.
+management is handled by Node.js. -->
 
 Other than I/O calls, Node.js expects that all requests return quickly; e.g. 
 [CPU-intensive work should be split off to another process][12] with which you
