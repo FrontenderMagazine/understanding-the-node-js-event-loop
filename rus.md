@@ -151,57 +151,30 @@ EventEmitter) поддерживают асинхронное взаимодей
 
 ## Так как же мы реализуем асинхронность в node.js?
 
-<!-- ## So how do we do async in Node.js? -->
+Tim Caswell определил следующие паттерны в его [потрясающей презентации][19]:
 
-Tim Caswell определил следующие паттерны в его [потрясающей презентации][20]:
+*   Функции первого класса. Мы подходим к таким функциям как к данным, 
+    разбрасывая их вокруг и выполняя их по необходимости.
 
-<!-- Tim Caswell describes the patterns in his [excellent presentation][19]: -->
-
-*   Основа — функции. К примеру, мы подходим к функциям, как к данным, 
-    разбрасывая их вокруг и выполняя по необходимости
-
-<!-- *   First-class functions. E.g. we pass around functions as data, shuffle them
-    around and execute them when needed. -->
-
-*   Композиции функций. Так же известны как анонимные функции, или замыкания, 
+*   Функциональные композиции. Так же известны как анонимные функции, или замыкания, 
     которые выполняются после того, как что-то произойдет в I/O.
-
-<!-- *   Function composition. Also known as having anonymous functions or closures -->
-    <!-- that are executed after something happens in the evented I/O. -->
 
 *   Счетчики коллбеков. Повесив функции обратного вызова к определенным событиям,
     вы не можете гарантировать порядок их выполнения. Так что, если вам необходимо
     дождаться выполнения нескольких запросов, то самый простой способ решения
-    такой задачи — считать каждую выполненную операцию, и таким образом проверять, 
-    все ли необходимые операции были завершены. Это пригодиться, если вам
+    такой задачи — считать каждую завершенную операцию, и, таким образом, 
+    проверять, все ли необходимые операции были завершены. Это пригодиться, если вам
     обязательно нужно дождаться результатов. Например, считая количество 
     [выполненных запросов к базе данных][20] в коллбеке, мы можем определить,
     когда все наши запросы будут выполненны, и только тогда пойти дальше. 
     Запросы к базам данных запустятся параллельно, потому что I/O библиотека
-    поддерживает это (e.g. via connection pooling).
-
-<!-- *   Callback counters. For evented callbacks, you cannot guarantee that I/O
-    events are generated in any particular order. So if you need multiple queries to
-    complete, usually you just keep count of any parallel I/O operations, and check 
-    that all the necessary operations have completed when you absolutely must wait 
-    for the result; e.g
-   [by counting the number of returned DB queries][20] in the event callback
-    and only going further when you have all the data. The queries will run in 
-    parallel provided that the I/O library supports this (e.g. via connection 
-    pooling
-    ). -->
+    поддерживает это (например, благодаря пуллу подключений).
 
 *   Событийные циклы. Как упоминалось раньше, вы можете обернуть блокирующий код
-    в событийную абстракцию, запустив его в дочернем процессе, и получив из этого
-    процесса данные по окончанию обработки. 
+    в событийную абстракцию, запустив его в дочернем процессе, и забрав данные 
+    из этого процесса по окончанию его работы.
 
-<!-- *   Event loops. As mentioned earlier, you can wrap blocking code into an
-    evented abstraction e.g. by running a child process and returning data as it it 
-    is processed. -->
-
-Все это действительно очень просто!
-
-<!-- It really is that simple! -->
+Во всем этом нет ничего сложного!
 
  [1]: img/io-cost.png "io-cost"
  [2]: http://www.nightmare.com/medusa/async_sockets.html
